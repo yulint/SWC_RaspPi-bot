@@ -1,6 +1,6 @@
 # SWC_RaspPi-bot
 
-This is [Yu Lin](https://github.com/yulint/) and [Lucas](https://gihub.com/lssimoes) implementation of the robot's algorithm for _SWC Bootcamp 2018_.
+This is [Yu Lin](https://github.com/yulint/) and [Lucas](https://github.com/lssimoes) implementation of the robot's algorithm for _SWC Bootcamp 2018_.
 
 ## The problem
 
@@ -19,27 +19,27 @@ An outline of the (initial) idea for the robot is as follows:
 
 ```python
 while True:
-	img = capture_image
-	blue_object, x, y = find_objects(img) # centroid ellipse
-	
-	if blue_object:
-		decide_direction_move(x, y)
-		obstacles = check_for_obstacles_near_directions(x, y) *
-		if not obstacles:
-			move_towards_blue_objects
-			check_success: (no blue_object OR bigger(blue_object)) AND image_changed
-			if not_success:
-				take_stuck_measures
-	
-		if obstacles_other_blue:
-			take_some_turns
-			if not_success:
-				take_stuck_measures
+    img = capture_image
+    blue_object, x, y = find_objects(img) # centroid ellipse
+    
+    if blue_object:
+        decide_direction_move(x, y)
+        obstacles = check_for_obstacles_near_directions(x, y)
+        if not obstacles:
+            move_towards_blue_objects
+            check_success: (no blue_object OR bigger(blue_object)) AND image_changed
+            if not_success:
+                take_stuck_measures
+    
+        if obstacles_other_blue:
+            take_some_turns
+            if not_success:
+                take_stuck_measures
 
-	if not blue_object:
-		while not_moved:
-			check_other_directions
-			if not_near_object  # reasonably far
-				change_direction
+    if not blue_object:
+        while not_moved:
+            check_other_directions
+            if not_near_object  # reasonably far
+                change_direction
 
 ```
