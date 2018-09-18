@@ -87,6 +87,7 @@ def setAngle(angle):
     GPIO.output(pinServoRotation, False)
     pwm.ChangeDutyCycle(0)
 
+
 ## Auxiliary motor functions          #############################
 # They are not supposed to be used by the end user                # 
 #                                                                 #
@@ -166,3 +167,96 @@ def turnRight(duration):
 
     # clean the pins used so far
     GPIO.cleanup()
+
+
+# Grabs a picture from PiCamera
+# Input: nothing
+# Output: picture (numpy array BGR)
+def grabPicture():
+    # Initialize the camera, set resolution, fix rotation
+    camera = PiCamera()
+    camera.resolution = (640, 480)
+    camera.rotation = 180
+
+    # Camera warmup time (maybe less?)
+    sleep(1)
+
+    # Fix exposure time, white balance and gains
+    camera.shutter_speed = camera.exposure_speed
+    g = camera.awb_gains
+    camera.awb_mode = "off"
+    camera.awb_gains = g
+
+    # Grab a reference to the raw camera capture
+    rawCapture = PiRGBArray(camera, size=(640, 480))
+     
+    # These define the positions of the centroid of detected object. They will
+    # have positive values if an object is detected, so we set them negative now
+    iLastX = -1
+    iLastY = -1
+     
+    # Capture frames from the camera at rawCapture
+    camera.capture(rawCapture, format="bgr")
+
+    # Grab the NumPy array representing the raw image
+    image = rawCapture.array
+
+    # Clear the stream in preparation for the next frame
+    rawCapture.truncate(0)
+
+    # Everything done, release the capture
+    # Maybe we should save it before ending
+    camera.close()
+
+    return image
+
+
+# Receives a picture and process if it can find a blue object
+# Input: picture (numpy array BGR)
+# Output: pixel position of found object (-1 if not found)
+def findBlueBalloon(image):
+    # Our operations on the frame come here
+    hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
+    hsv = cv.medianBlur(hsv,5)
+
+    # Define range of blue color in HSV
+    # Royal blue's HSV: 
+    # - ColorHexa (225°, 71.1, 88.2)
+    # - Wikipedia (219°, 100%, 40%)
+    # - Color Hex (225°, 71°, 88°)
+    lower_blue = np.array([105,50,50])
+    upper_blue = np.array([130,255,255])
+
+    # Threshold the HSV image to get only blue colors
+    blueMask = cv.inRange(hsv, lower_blue, upper_blue)
+
+    # Refine mask
+    kernel = np.ones((5,5),np.uint8)
+    blueMask = cv.morphologyEx(blueMask, cv.MORPH_OPEN, kernel)
+    blueMask = cv.morphologyEx(blueMask, cv.MORPH_CLOSE, kernel)
+
+    # Bitwise-AND mask and original image
+    blueImage = cv.bitwise_and(image,image, mask= blueMask)
+
+    # CODE TO WRITE HERE: find the blue balloon
+
+    # Find centroid of object
+    M = cv.moments(blueMask)
+    area = M['m00']
+    # If the area is too small maybe that's not an object we want
+    if area > 10000:
+        posX = int(M['m10']/M['m00'])
+        posY = int(M['m01']/M['m00'])
+
+    # From here below, it is just for TESTING purposes
+    # Need to get rid of them later!
+
+    # Display the resulting frame
+    cv.imshow('image',image)
+    #cv.imshow('mask',blueMask)
+    cv.imshow('res',blueImage)
+    # If the `q` key was pressed, break from the loop
+    if cv.waitKey(1) & 0xFF == ord('q'):
+        cv.destroyAllWindows()
+
+    return posX, posY
