@@ -8,7 +8,9 @@ The task is to use [RPi 3 B+](https://www.raspberrypi.org/products/raspberry-pi-
 
 ## The implementation
 
-Our implementation is written is [Python 3](https://www.python.org/) and uses several libraries, such as:
+The way to run the code is to get inside the folder `robot`, enter the Python shell (run `python3`) and, inside the shell, run `import main`. This should get you in a python environment with all the functions imported! (work in progress, not very python-like)
+
+Our implementation is written in [Python 3](https://www.python.org/) and uses several libraries, such as:
 
 - [OpenCV](https://docs.opencv.org/3.4.3/)
 - [RPi.GPIO](https://sourceforge.net/projects/raspberry-gpio-python/)
