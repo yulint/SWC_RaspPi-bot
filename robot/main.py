@@ -9,12 +9,3 @@ from picamera.array import PiRGBArray
 from robotfunctions import *
 
 setup()
-
-## testing
-
-d = distancePulse()
-print(d)
-
-setAngle(90)
-
-motorRight(1.7, 1)               

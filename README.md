@@ -8,14 +8,16 @@ The task is to use [RPi 3 B+](https://www.raspberrypi.org/products/raspberry-pi-
 
 ## The implementation
 
-The way to run the code is to get inside the folder `robot`, enter the Python shell (run `python3`) and then:
+The way to run the code is to get inside the folder `robot/`, enter the Python shell (run `python3`) and then:
 
 ```python
 Python 3.x.y
 >>> import main
 ```
 
-This should get you in a python environment with all the functions imported! (work in progress, not very python-like)
+This should get you in a python environment with all the functions imported! (work in progress, not very python-like).
+
+The testing still needs to get implemented, but there are some ideas in the `tests/` folder .
 
 Our implementation is written in [Python 3](https://www.python.org/) and uses several libraries, such as:
 
