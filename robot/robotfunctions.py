@@ -292,7 +292,7 @@ def findBlueBalloon(image):
 def getAngleFromImage(image, x, y):
     xcenter = image.shape[0] / 2
 
-    rad = np.arctan((np.abs(xb - xp))/yb)
+    rad = np.arctan((np.abs(x - xcenter))/y)
 
     return 2*np.pi*rad
 
