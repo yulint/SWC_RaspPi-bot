@@ -103,31 +103,31 @@ def setAngle(angle):
 # Output: nothing                                                 #
 calibration = 0.9 #Speed of 2 motors are same when dutyCycleLeft is 0.9 x dutyCycleRight
 
-def powerMotorRightForwards(speed):                      #
-    DutyCycleRight = speed
+def powerMotorRightForwards(speed):                               #
+    DutyCycleRight = speed                                        #
     pwmMotorRightF.ChangeDutyCycle(DutyCycleRight)                #
     pwmMotorRightB.ChangeDutyCycle(0)                             #
                                                                   #
-def powerMotorLeftForwards(speed):                        #
-    DutyCycleLeft = speed * calibration
+def powerMotorLeftForwards(speed):                                #
+    DutyCycleLeft = speed * calibration                           #
     pwmMotorLeftF.ChangeDutyCycle(DutyCycleLeft)                  #
     pwmMotorLeftB.ChangeDutyCycle(0)                              #
                                                                   #
-def powerMotorRightBackwards(speed):                     #
-    DutyCycleRight = speed
+def powerMotorRightBackwards(speed):                              #
+    DutyCycleRight = speed                                        #
     pwmMotorRightF.ChangeDutyCycle(0)                             #
-    pwmMotorRightB.ChangeDutyCycle(DutyCycleRight)               #                                                                  #
+    pwmMotorRightB.ChangeDutyCycle(DutyCycleRight)                #
                                                                   #
-def powerMotorLeftBackwards(speed):                       #
-    DutyCycleLeft = speed * calibration
-    pwmMotorLeftF.ChangeDutyCycle(0)                             #
+def powerMotorLeftBackwards(speed):                               #
+    DutyCycleLeft = speed * calibration                           #
+    pwmMotorLeftF.ChangeDutyCycle(0)                              #
     pwmMotorLeftB.ChangeDutyCycle(DutyCycleLeft)                  #
-
-def stopMotors():
-    pwmMotorRightF.ChangeDutyCycle(0)
-    pwmMotorRightB.ChangeDutyCycle(0)
-    pwmMotorLeftF.ChangeDutyCycle(0)
-    pwmMotorLeftB.ChangeDutyCycle(0)  
+                                                                  #
+def stopMotors():                                                 #
+    pwmMotorRightF.ChangeDutyCycle(0)                             #
+    pwmMotorRightB.ChangeDutyCycle(0)                             #
+    pwmMotorLeftF.ChangeDutyCycle(0)                              #
+    pwmMotorLeftB.ChangeDutyCycle(0)                              #
 ###################################################################
 
 
@@ -295,6 +295,31 @@ def getAngleFromImage(image, x, y):
     rad = np.arctan((np.abs(xb - xp))/yb)
 
     return 2*np.pi*rad
+
+# Normalize intensity of images
+# Input: picture (numpy array Gray)
+# Output: picture (numpy array GRay)
+def normalize(img):
+    rng = img.max() - img.min()
+
+    return (img - img.min()) * 255 / rng
+
+# Compare two images and check if they are "too" different
+# Input: 2 pictures (numpy array BGR)
+# Output: True or False
+def compareImages(oldimg, newimg):
+    grayOldImg = normalize(cv.cvtColor(oldimg, cv.COLOR_BGR2GRAY))
+    grayNewImg = normalize(cv.cvtColor(newimg, cv.COLOR_BGR2GRAY))
+
+    # calculate the difference and its norms
+    diffimg = img1 - img2  # elementwise for scipy arrays
+    m_norm = sum(abs(diffimg))  # Manhattan norm
+    z_norm = norm(diffimg.ravel(), 0)  # Zero norm
+
+    # return True if they are different enough
+    return (m_norm > 0.5 and z_norm > 0)
+
+
 
 # MAIN FUNCTION OF THE ROBOT
 # We should be able to run this and magic happens
