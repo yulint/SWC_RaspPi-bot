@@ -1,48 +1,48 @@
-def functeste():
-    print(2)
+import RPi.GPIO as GPIO
+import numpy as np
+import cv2 as cv
 
+from time import sleep, time
+from picamera import PiCamera
+from picamera.array import PiRGBArray
 
-# Setup the Pins and all
-# Input: nothing
-# Output: nothing
-def setupRobot():
-    # set GPIO modes (numbering of pins: BCM)
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
+# set GPIO modes (numbering of pins: BCM)
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 
-    # define GPIO pins
-    pinMotorRightF     = 7
-    pinMotorRightB     = 8
-    pinMotorLeftF      = 9
-    pinMotorLeftB      = 10
-    pinTrigger         = 17
-    pinEcho            = 18
-    pinServoRotation   = 22
+# define GPIO pins
+pinMotorRightF     = 7
+pinMotorRightB     = 8
+pinMotorLeftF      = 9
+pinMotorLeftB      = 10
+pinTrigger         = 17
+pinEcho            = 18
+pinServoRotation   = 22
 
-    # set pin modes
-    # motors: 
-    # - B = Left
-    # - A = Right
-    GPIO.setup(pinTrigger, GPIO.OUT)
-    GPIO.setup(pinServoRotation, GPIO.OUT)
-    GPIO.setup(pinMotorLeftF, GPIO.OUT) 
-    GPIO.setup(pinMotorLeftB, GPIO.OUT)  
-    GPIO.setup(pinMotorRightF, GPIO.OUT) 
-    GPIO.setup(pinMotorRightB, GPIO.OUT) 
-               
-    GPIO.setup(pinEcho, GPIO.IN)
+# set pin modes
+# motors: 
+# - B = Left
+# - A = Right
+GPIO.setup(pinTrigger, GPIO.OUT)
+GPIO.setup(pinServoRotation, GPIO.OUT)
+GPIO.setup(pinMotorLeftF, GPIO.OUT) 
+GPIO.setup(pinMotorLeftB, GPIO.OUT)  
+GPIO.setup(pinMotorRightF, GPIO.OUT) 
+GPIO.setup(pinMotorRightB, GPIO.OUT) 
+           
+GPIO.setup(pinEcho, GPIO.IN)
 
-    # Set idle states
-    GPIO.output(pinMotorLeftF,0)
-    GPIO.output(pinMotorLeftB,0)
-    GPIO.output(pinMotorRightF,0)
-    GPIO.output(pinMotorRightB,0)
+# Set idle states
+GPIO.output(pinMotorLeftF,0)
+GPIO.output(pinMotorLeftB,0)
+GPIO.output(pinMotorRightF,0)
+GPIO.output(pinMotorRightB,0)
 
-    GPIO.output(pinTrigger, 0)
+GPIO.output(pinTrigger, 0)
 
-    # Start pinServoRotation as PWM with 50Hz and 0 duty
-    pwm = GPIO.PWM(pinServoRotation, 50)
-    pwm.start(0)
+# Start pinServoRotation as PWM with 50Hz and 0 duty
+pwm = GPIO.PWM(pinServoRotation, 50)
+pwm.start(0)
 
 
 # Send a ultrasound pulse to check the distance to nearest object.
@@ -220,10 +220,10 @@ def findBlueBalloon(image):
     hsv = cv.medianBlur(hsv,5)
 
     # Define range of blue color in HSV
-    # Royal blue's HSV: 
-    # - ColorHexa (225°, 71.1, 88.2)
-    # - Wikipedia (219°, 100%, 40%)
-    # - Color Hex (225°, 71°, 88°)
+    # Royal blue's HSV:
+    # - ColorHexa (225 o, 71.1, 88.2)
+    # - Wikipedia (219 o, 100%, 40%)
+    # - Color Hex (225 o, 71, 88)
     lower_blue = np.array([105,50,50])
     upper_blue = np.array([130,255,255])
 

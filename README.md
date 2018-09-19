@@ -12,7 +12,7 @@ The way to run the code is to get inside the folder `robot/`, enter the Python s
 
 ```python
 Python 3.x.y
->>> import main
+>>> from robotfunctions import *
 ```
 
 This should get you in a python environment with all the functions imported! (work in progress, not very python-like).
