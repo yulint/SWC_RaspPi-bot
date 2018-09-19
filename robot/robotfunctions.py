@@ -232,7 +232,7 @@ def initializeCamera():
 def findBlueBalloon(image):
     # Our operations on the frame come here
     hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
-    hsv = cv.medianBlur(hsv,5)
+    hsv = cv.medianBlur(hsv,5) #MAYBE WE SHOULD TRY GAUSSIAN BLUR HERE 
 
     # Define range of blue color in HSV
     # Royal blue's HSV:
@@ -246,27 +246,34 @@ def findBlueBalloon(image):
     blueMask = cv.inRange(hsv, lower_blue, upper_blue)
 
     # Refine mask
+    blueMask = cv.medianBlur(hsv,5)
     kernel = np.ones((5,5),np.uint8)
     blueMask = cv.morphologyEx(blueMask, cv.MORPH_OPEN, kernel)
     blueMask = cv.morphologyEx(blueMask, cv.MORPH_CLOSE, kernel)
 
-    # Bitwise-AND mask and original image
-    blueImage = cv.bitwise_and(image, image, mask=blueMask)
-
     # CODE TO WRITE HERE: find the blue balloon
+    _, contours, hierarchy = cv.findContours(blueMask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    
+    # METHOD ONE: choose largest contour
+    if len(contours) > 0:
+        largestContour = max(contours, key=cv.contourArea)
+    
+    # METHOD TWO: filter out contours that are too small, then check for roundness?
+    sizeFilteredContours = []
+    for contour in contours:
+        area = cv.contourArea(contour)
+        if area > 1000 :
+            sizeFilteredContours.append(contour)
+    # code to check for roundness
 
-    # Find centroid of object
-    M = cv.moments(blueMask)
-    area = M['m00']
-
-    # If there are no objects, return -1
-    posX = -1
-    posY = -1
-    # If the area is too small maybe that's not an object we want
-    if area > 10000:
-        posX = int(M['m10']/M['m00'])
-        posY = int(M['m01']/M['m00'])
-
+    
+    blueBalloon = largestContour #or whichever method we use
+    
+    # Find centroid of blue balloon
+    M = cv.moments(blueBalloon)
+    posX = int(M['m10']/M['m00'])
+    posY = int(M['m01']/M['m00'])
+   
     return posX, posY
 
 
