@@ -205,48 +205,26 @@ def turnAngle(angle):
     if angle == 180:
         turnRight(40,0.6)
 
-def startCAmeraVideo():
-    
-
-    return cam
-
-# Grabs a picture from PiCamera
-# Input: camera object
-# Output: picture (numpy array BGR)
-def grabPicture(camera):
-    # Initialize the camera, set resolution, fix rotation
+# Turns on camera
+# Input: none
+# Output: camera object in BGR mode 
+def initializeCamera():
+    # Initialize the camera, set resolution
     camera = cv.VideoCapture(0)
-    camera.set(CV_CAP_PROP_FRAME_WIDTH, 640)
-    camera.set(CV_CAP_PROP_FRAME_HEIGHT, 480)
     
-    # Camera warmup time (maybe less?)
+    camera.set(cv.CAP_PROP_FRAME_WIDTH, 640)
+    camera.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
+   
+    camera.set(cv.CAP_PROP_FPS, 1)
+    
+    # warmup time for camera to pick optimal exposure/ gain values (maybe less?)
     sleep(1)
 
-    # Fix exposure time, white balance and gains
-    optimizedExposure = int(camera.get(CV_CAP_PROP_EXPOSURE))
-    camera.set(CV_CAP_PROP_EXPOSURE,optimizedExposure)
-    g = camera.awb_gains
-    camera.awb_mode = "off"
-    camera.awb_gains = g
-
-    # Grab a reference to the raw camera capture
-    rawCapture = PiRGBArray(camera, size=(640, 480))
-
-    # Capture frames from the camera at rawCapture
-    camera.capture(rawCapture, format="bgr")
-
-    # Grab the NumPy array representing the raw image
-    image = rawCapture.array
-
-    # Clear the stream in preparation for the next frame
-    rawCapture.truncate(0)
-
-    # Everything done, release the capture
-    # Maybe we should save it before ending
-    camera.close()
-
-    return image
-
+    # Fix exposure time, and gains (white balance cannot be fixed using openCV)
+    optimizedExposure = int(camera.get(cv.CAP_PROP_EXPOSURE))
+    camera.set(cv.CAP_PROP_EXPOSURE,optimizedExposure)
+    
+    return camera
 
 # Receives a picture and process if it can find a blue object
 # Input: picture (numpy array BGR)
@@ -325,27 +303,35 @@ def compareImages(oldimg, newimg):
     # return True if they are too similar 
     return (m_norm < 0.5 and z_norm < 0)
 
-
-
+def compareDistanceSensor(previousD, currentD):
+    difference = abs(previousD-currentD)
+    return (difference < 1)
+    
 # MAIN FUNCTION OF THE ROBOT
 # We should be able to run this and magic happens
 def main():   
-    camera = startCameraVideo()
+    camera = initializeCamera()
     #previousImg = 
+    previousD = 0
     
     #decide threshold distance (mm) to be considered as obstacle vs potential object
     threshDist_obstacle = 10
     threshDist_object = 100 #smallest distance (mm) for which we can accept as potential object rather than obstacle; needs to be optimized
            
     while True:
+        # Capture frame-by-frame (for detecting blue balloons + checking if robot is stuck)
         _, currentImg  = camera.read()
-
+        
+        # Check distance straight ahead (for checking if robot is stuck)
+        rotateDistanceSensor(90)
+        currentD = distancePulse() 
+        
         #CHECK WHETHER ROBOT IS STUCK after each movement
-        stuck = compareImages(previousImg, currentImg)
+        stuck = compareImages(previousImg, currentImg) or compareDistanceSensor(previousD, currentD)
         if stuck == True:
             goBackwards(40,1)
-            angle = random(randint(0,6))*30
-            
+            angle = (random.randint(0,6))*30
+        
                     
         #LOOK FOR BLUE BALLOON
         #(x, y) are the position for the centroid of blue object
@@ -360,8 +346,6 @@ def main():
             rotateDistanceSensor(angle) # turn the distance sensor towards blue object
             d = distancePulse()
             print("The distance is: ", d)
-
-            #TRACK blue object
             
             # walk straight to blue object if there are no obstacles in the way
             if d > threshDist_obstacle:
@@ -386,12 +370,12 @@ def main():
                    
 
         #EXPLORE IF NO BLUE OBJECTS
-        # if no blue objects found or obstacle in the way of blue object
+        # if no blue objects found, or obstacle in the way of blue object
+        # then use ultrasound distance sensor to search for potential objects and check for obstacles before turning
+        # if no potential objects are found, pick a random direction 
         if (x, y) == (-1, -1): # negative values: default for no object
             print("No object found!")
 
-            # use ultrasound distance sensor to search for potential objects and check for obstacles before turning, overriding the random angle if potential objects are found
-            
             listAnglesNoObstacles = []
             angle = -1
                
@@ -413,6 +397,9 @@ def main():
             goForwards(40,1)
 
         previousImg = currentImg
+        previousD = currentD
+        
+    camera.release()
             
         
 goForwards(40, 1)
