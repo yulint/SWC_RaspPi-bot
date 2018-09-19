@@ -20,23 +20,28 @@ pinEcho            = 18
 pinServoRotation   = 22
 
 # set pin modes
+GPIO.setup(pinTrigger, GPIO.OUT)
+GPIO.setup(pinServoRotation, GPIO.OUT)
+GPIO.setup(pinEcho, GPIO.IN)
+
 # motors: 
 # - B = Left
 # - A = Right
-GPIO.setup(pinTrigger, GPIO.OUT)
-GPIO.setup(pinServoRotation, GPIO.OUT)
 GPIO.setup(pinMotorLeftF, GPIO.OUT) 
 GPIO.setup(pinMotorLeftB, GPIO.OUT)  
 GPIO.setup(pinMotorRightF, GPIO.OUT) 
 GPIO.setup(pinMotorRightB, GPIO.OUT) 
-           
-GPIO.setup(pinEcho, GPIO.IN)
+# Set the GPIO to software PWM at 'Frequency' Hertz
+pwmMotorRightF = GPIO.PWM(pinMotorRightF, Frequency)
+pwmMotorRightB = GPIO.PWM(pinMotorRightB, Frequency)
+pwmMotorLeftF = GPIO.PWM(pinMotorLeftF, Frequency)
+pwmMotorLeftB = GPIO.PWM(pinMotorLeftB, Frequency)
 
 # Set idle states
-GPIO.output(pinMotorLeftF,0)
-GPIO.output(pinMotorLeftB,0)
-GPIO.output(pinMotorRightF,0)
-GPIO.output(pinMotorRightB,0)
+pwmMotorRightF.start(0)
+pwmMotorRightB.start(0)
+pwmMotorLeftF.start(0)
+pwmMotorLeftB.start(0)
 
 GPIO.output(pinTrigger, 0)
 
@@ -94,79 +99,107 @@ def setAngle(angle):
 # Sends a signal to the on-off motors to go forwards or backwards.
 # Input: nothing                                                  #
 # Output: nothing                                                 #
-def powerMotorRightForwards():                                    #
-    GPIO.output(pinMotorRightF,1)                                 #
-    GPIO.output(pinMotorRightB,0)                                 #
+calibration = 0.9 #Speed of 2 motors are same when dutyCycleLeft is 0.9 x dutyCycleRight
+
+def powerMotorRightForwards(speed):                      #
+    DutyCycleRight = speed
+    pwmMotorRightF.ChangeDutyCycle(DutyCycleRight)                #
+    pwmMotorRightB.ChangeDutyCycle(0)                             #
                                                                   #
-def powerMotorLeftForwards():                                     #
-    GPIO.output(pinMotorLeftF,1)                                  #
-    GPIO.output(pinMotorLeftB,0)                                  #
+def powerMotorLeftForwards(speed):                        #
+    DutyCycleLeft = speed * calibration
+    pwmMotorLeftF.ChangeDutyCycle(DutyCycleLeft)                  #
+    pwmMotorLeftB.ChangeDutyCycle(0)                              #
                                                                   #
-def powerMotorRightBackwards():                                   #
-    GPIO.output(pinMotorRightF,0)                                 #
-    GPIO.output(pinMotorRightB,1)                                 #
+def powerMotorRightBackwards(speed):                     #
+    DutyCycleRight = speed
+    pwmMotorRightF.ChangeDutyCycle(0)                             #
+    pwmMotorRightB.ChangeDutyCycle(DutyCycleRight)               #                                                                  #
                                                                   #
-def powerMotorLeftBackwards():                                    #
-    GPIO.output(pinMotorLeftF,0)                                  #
-    GPIO.output(pinMotorLeftB,1)                                  #
+def powerMotorLeftBackwards(speed):                       #
+    DutyCycleLeft = speed * calibration
+    pwmMotorLeftF.ChangeDutyCycle(0)                             #
+    pwmMotorLeftB.ChangeDutyCycle(DutyCycleLeft)                  #
+
+def stopMotors():
+    pwmMotorRightF.ChangeDutyCycle(0)
+    pwmMotorRightB.ChangeDutyCycle(0)
+    pwmMotorLeftF.ChangeDutyCycle(0)
+    pwmMotorLeftB.ChangeDutyCycle(0)  
 ###################################################################
 
 
 ## User Motor functions
 
 # Sends the robot forwards for some amount of time
-# Input: duration (in s)
+# Input: duration (in s), speed (in duty cycles)
 # Output: nothing
-def goBackwards(duration):
+def goBackwards(speed, duration):
+
     # turn on both motors backwards
-    powerMotorLeftBackwards()
-    powerMotorRightBackwards()
+    powerMotorLeftBackwards(speed)
+    powerMotorRightBackwards(speed)
 
     # duration time
     sleep(duration)
 
     # clean the pins used so far
-    GPIO.cleanup()
+    offAllMotors()
 
 # Sends the robot backwards for some amount of time
 # Input: duration (in s)
 # Output: nothing
-def goForwards(duration):
+def goForwards(speed, duration):
     # turn on both motors forwards
-    powerMotorLeftForwards()
-    powerMotorRightForwards()
+    powerMotorLeftForwards(speed)
+    powerMotorRightForwards(speed)
 
     # duration time
     sleep(duration)
 
     # clean the pins used so far
-    GPIO.cleanup()
+    offAllMotors()
 
 # Sends the robot to turn left for some amount of time
 # Input: duration (in s)
 # Output: nothing
-def turnLeft(duration):
+def turnLeft(speed, duration):
     # turn only motors right forwards
-    powerMotorRightForwards()
-
+    powerMotorRightForwards(speed)
+    powerMotorLeftBackwards(speed)
+    
     # duration time
     sleep(duration)
 
     # clean the pins used so far
-    GPIO.cleanup()
+    offAllMotors()
 
 # Sends the robot to turn right for some amount of time
 # Input: duration (in s)
 # Output: nothing
-def turnRight(duration):
+def turnRight(speed, duration):
     # turn only motors left forwards
-    powerMotorLeftBackwards()
+    powerMotorRightBackwards(speed)
+    powerMotorLeftForwards(speed)
 
     # duration time
     sleep(duration)
 
     # clean the pins used so far
-    GPIO.cleanup()
+    offAllMotors()
+
+# Turns the robot to face 0, 45, 135 or 180degrees, left to right = 0 to 180
+def turnTo0()
+    turnLeft(40,0.6)
+
+def turnTo45()
+    turnLeft(40,0.3)
+
+def turnTo135()
+    turnRight(40,0.3)
+
+def turnTo180()
+    turnRight(40,0.6)
 
 
 # Grabs a picture from PiCamera
