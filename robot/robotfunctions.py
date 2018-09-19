@@ -205,8 +205,8 @@ def turnAngle(angle):
     if angle == 180:
         turnRight(40,0.6)
 
-def startCAmeraVideo()
-    #bla
+def startCAmeraVideo():
+    
 
     return cam
 
@@ -217,7 +217,7 @@ def grabPicture(camera):
     # Initialize the camera, set resolution, fix rotation
     camera = cv.VideoCapture(0)
     camera.set(CV_CAP_PROP_FRAME_WIDTH, 640)
-    camera.set(CV_CAP_PROP_FRAME_HEIGHT, 640)
+    camera.set(CV_CAP_PROP_FRAME_HEIGHT, 480)
     
     # Camera warmup time (maybe less?)
     sleep(1)
@@ -329,9 +329,9 @@ def compareImages(oldimg, newimg):
 
 # MAIN FUNCTION OF THE ROBOT
 # We should be able to run this and magic happens
-def main():
-    #previousImg = 
+def main():   
     camera = startCameraVideo()
+    #previousImg = 
     
     #decide threshold distance (mm) to be considered as obstacle vs potential object
     threshDist_obstacle = 10
@@ -341,10 +341,11 @@ def main():
         _, currentImg  = camera.read()
 
         #CHECK WHETHER ROBOT IS STUCK after each movement
-        stuck = compareImages(previousImg,currentImg)
+        stuck = compareImages(previousImg, currentImg)
         if stuck == True:
-            moveBackwards(40,1)
+            goBackwards(40,1)
             angle = random(randint(0,6))*30
+            
                     
         #LOOK FOR BLUE BALLOON
         #(x, y) are the position for the centroid of blue object
@@ -365,7 +366,7 @@ def main():
             # walk straight to blue object if there are no obstacles in the way
             if d > threshDist_obstacle:
                 turnAngle(angle)
-                moveForwards(40,1) #need to optimise how far robot walks forwards
+                goForwards(40,1) #need to optimise how far robot walks forwards
 
             if d <= threshDist_obstacle:
                 (x,y) = (-1,-1)
@@ -409,9 +410,9 @@ def main():
                 angle = random.choice(listAnglesNoObstacles)        
 
             turnAngle(angle)
-            moveForwards(40,1)
+            goForwards(40,1)
 
         previousImg = currentImg
             
         
-grabPicture()
+goForwards(40, 1)
