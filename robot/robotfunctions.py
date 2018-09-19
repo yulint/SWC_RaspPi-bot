@@ -34,6 +34,7 @@ GPIO.setup(pinMotorLeftB, GPIO.OUT)
 GPIO.setup(pinMotorRightF, GPIO.OUT) 
 GPIO.setup(pinMotorRightB, GPIO.OUT) 
 # Set the GPIO to software PWM at 'Frequency' Hertz
+Frequency=20
 pwmMotorRightF = GPIO.PWM(pinMotorRightF, Frequency)
 pwmMotorRightB = GPIO.PWM(pinMotorRightB, Frequency)
 pwmMotorLeftF = GPIO.PWM(pinMotorLeftF, Frequency)
@@ -78,7 +79,7 @@ def distancePulse():
 # Sends a signal to the servo motor to set a given angle
 # Input: angle (in degrees)
 # Output: nothing
-def setAngle(angle):
+def rotateDistanceSensor(angle):
     # Duty is the ratio between times on and off
     # Our duty must be in the range 2-12 for 0-180 degrees
     duty = angle / 18 + 2
@@ -123,7 +124,7 @@ def powerMotorLeftBackwards(speed):                               #
     pwmMotorLeftF.ChangeDutyCycle(0)                              #
     pwmMotorLeftB.ChangeDutyCycle(DutyCycleLeft)                  #
                                                                   #
-def stopMotors():                                                 #
+def offAllMotors():                                                 #
     pwmMotorRightF.ChangeDutyCycle(0)                             #
     pwmMotorRightB.ChangeDutyCycle(0)                             #
     pwmMotorLeftF.ChangeDutyCycle(0)                              #
@@ -191,7 +192,7 @@ def turnRight(speed, duration):
     offAllMotors()
 
 # Turns the robot to face 0, 45, 135 or 180degrees, left to right = 0 to 180
-def turnAngle(angle)
+def turnAngle(angle):
     if angle == 0:
         turnLeft(40,0.6)
 
@@ -201,24 +202,29 @@ def turnAngle(angle)
     if angle == 135:
         turnRight(40,0.3)
 
-    if angle == 180
+    if angle == 180:
         turnRight(40,0.6)
 
+def startCAmeraVideo()
+    #bla
+
+    return cam
 
 # Grabs a picture from PiCamera
-# Input: nothing
+# Input: camera object
 # Output: picture (numpy array BGR)
-def grabPicture():
+def grabPicture(camera):
     # Initialize the camera, set resolution, fix rotation
-    camera = PiCamera()
-    camera.resolution = (640, 480)
-    camera.rotation = 180
-
+    camera = cv.VideoCapture(0)
+    camera.set(CV_CAP_PROP_FRAME_WIDTH, 640)
+    camera.set(CV_CAP_PROP_FRAME_HEIGHT, 640)
+    
     # Camera warmup time (maybe less?)
     sleep(1)
 
     # Fix exposure time, white balance and gains
-    camera.shutter_speed = camera.exposure_speed
+    optimizedExposure = int(camera.get(CV_CAP_PROP_EXPOSURE))
+    camera.set(CV_CAP_PROP_EXPOSURE,optimizedExposure)
     g = camera.awb_gains
     camera.awb_mode = "off"
     camera.awb_gains = g
@@ -304,7 +310,7 @@ def normalize(img):
 
     return (img - img.min()) * 255 / rng
 
-# Compare two images and check if they are "too" different
+# Compare two images and check if they are "too" similar
 # Input: 2 pictures (numpy array BGR)
 # Output: True or False
 def compareImages(oldimg, newimg):
@@ -316,46 +322,80 @@ def compareImages(oldimg, newimg):
     m_norm = sum(abs(diffimg))  # Manhattan norm
     z_norm = norm(diffimg.ravel(), 0)  # Zero norm
 
-    # return True if they are different enough
-    return (m_norm > 0.5 and z_norm > 0)
+    # return True if they are too similar 
+    return (m_norm < 0.5 and z_norm < 0)
 
 
 
 # MAIN FUNCTION OF THE ROBOT
 # We should be able to run this and magic happens
 def main():
+    #previousImg = 
+    camera = startCameraVideo()
+    
+    #decide threshold distance (mm) to be considered as obstacle vs potential object
+    threshDist_obstacle = 10
+    threshDist_object = 100 #smallest distance (mm) for which we can accept as potential object rather than obstacle; needs to be optimized
+           
     while True:
-        img  = grabPicture()
+        _, currentImg  = camera.read()
 
-        # (x, y) are the position for the centroid of blue object
-        x, y = findBlueBalloon(img)
+        #CHECK WHETHER ROBOT IS STUCK after each movement
+        stuck = compareImages(previousImg,currentImg)
+        if stuck == True:
+            moveBackwards(40,1)
+            angle = random(randint(0,6))*30
+                    
+        #LOOK FOR BLUE BALLOON
+        #(x, y) are the position for the centroid of blue object
+        x, y = findBlueBalloon(currentImg)
 
-        # found something blue!
+        #GO TOWARDS BLUE OBJECT, IF FOUND
         if (x,y) != (-1, -1):
             # get angle of blue object
             angle = getAngleFromImage(img, x, y)
 
-            # turn the distance sensor towards blue object
-            setAngle(angle)
-            # measure the distance towards blue object
+            # check for obstacles between robot and blue object
+            rotateDistanceSensor(angle) # turn the distance sensor towards blue object
             d = distancePulse()
             print("The distance is: ", d)
 
-            # now walk to blu object
+            #TRACK blue object
+            
+            # walk straight to blue object if there are no obstacles in the way
+            if d > threshDist_obstacle:
+                turnAngle(angle)
+                moveForwards(40,1) #need to optimise how far robot walks forwards
 
-        # if no blue objects found
+            if d <= threshDist_obstacle:
+                (x,y) = (-1,-1)
+                
+            # take indirect path to blue object if obstacles in the way
+##            if d <= threshDist_obstacle:
+##                if 0 < angle < 90
+##                    rotateDistanceSensor(angle+90)
+##                if 90 < angle < 180
+##                    rotateDistanceSensor(angle-90)
+##
+##                d= distancePulse
+##
+##                if d > threshDist_obstacle:
+##                    turnAngle(angle+90)
+##                    moveForwards(40,1)
+                   
+
+        #EXPLORE IF NO BLUE OBJECTS
+        # if no blue objects found or obstacle in the way of blue object
         if (x, y) == (-1, -1): # negative values: default for no object
             print("No object found!")
 
             # use ultrasound distance sensor to search for potential objects and check for obstacles before turning, overriding the random angle if potential objects are found
-            threshDist_object = 100 #smallest distance (mm) for which we can accept as potential object rather than obstacle; needs to be optimized
-            threshDist_obstacle = 10
-
+            
             listAnglesNoObstacles = []
             angle = -1
                
             for testAngle in range(0,180,45):  #check through angles from 0 to 180, in 45degree increments 
-                setAngle(testAngle)
+                rotateDistanceSensor(testAngle)
                 distance = distancePulse() 
                     
                 if distance <= threshDist_object and distance > threshDist_obstacle: 
@@ -368,5 +408,10 @@ def main():
             if angle == -1:
                 angle = random.choice(listAnglesNoObstacles)        
 
-            turnAngle(angle)   
+            turnAngle(angle)
+            moveForwards(40,1)
 
+        previousImg = currentImg
+            
+        
+grabPicture()
