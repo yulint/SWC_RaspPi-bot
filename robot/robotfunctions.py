@@ -260,3 +260,15 @@ def findBlueBalloon(image):
         cv.destroyAllWindows()
 
     return posX, posY
+
+
+# Receives a picture and the position of object then returns the angle to it
+# Input: picture (numpy array BGR), (x, y) position in pixel
+# Output: angle (2*pi*radians)
+def getAngleFromImage(image, x, y):
+    xcenter = image.shape[0] / 2
+
+    rad = np.arctan((np.abs(xb - xp))/yb)
+
+    return 2*np.pi*rad
+
