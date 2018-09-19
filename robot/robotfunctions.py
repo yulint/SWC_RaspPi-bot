@@ -3,7 +3,6 @@ import numpy as np
 import cv2 as cv
 import random 
 
-
 from time import sleep, time
 from picamera import PiCamera
 from picamera.array import PiRGBArray
@@ -22,8 +21,8 @@ pinEcho            = 18
 pinServoRotation   = 22
 
 # set pin modes
-GPIO.setup(pinTrigger, GPIO.OUT)
 GPIO.setup(pinServoRotation, GPIO.OUT)
+GPIO.setup(pinTrigger, GPIO.OUT)
 GPIO.setup(pinEcho, GPIO.IN)
 
 # motors: 
@@ -33,6 +32,7 @@ GPIO.setup(pinMotorLeftF, GPIO.OUT)
 GPIO.setup(pinMotorLeftB, GPIO.OUT)  
 GPIO.setup(pinMotorRightF, GPIO.OUT) 
 GPIO.setup(pinMotorRightB, GPIO.OUT) 
+
 # Set the GPIO to software PWM at 'Frequency' Hertz
 Frequency=20
 pwmMotorRightF = GPIO.PWM(pinMotorRightF, Frequency)
@@ -52,6 +52,13 @@ GPIO.output(pinTrigger, 0)
 pwm = GPIO.PWM(pinServoRotation, 50)
 pwm.start(0)
 
+## External parameters
+
+# speedLeft = speedRight when dutyCycleLeft = 0.9 x dutyCycleRight
+calibration = 0.9 
+
+
+## FUNCTIONS
 
 # Send a ultrasound pulse to check the distance to nearest object.
 # Input: nothing
@@ -102,7 +109,6 @@ def rotateDistanceSensor(angle):
 # Sends a signal to the on-off motors to go forwards or backwards.
 # Input: nothing                                                  #
 # Output: nothing                                                 #
-calibration = 0.9 #Speed of 2 motors are same when dutyCycleLeft is 0.9 x dutyCycleRight
 
 def powerMotorRightForwards(speed):                               #
     DutyCycleRight = speed                                        #
@@ -124,7 +130,7 @@ def powerMotorLeftBackwards(speed):                               #
     pwmMotorLeftF.ChangeDutyCycle(0)                              #
     pwmMotorLeftB.ChangeDutyCycle(DutyCycleLeft)                  #
                                                                   #
-def offAllMotors():                                                 #
+def offAllMotors():                                               #
     pwmMotorRightF.ChangeDutyCycle(0)                             #
     pwmMotorRightB.ChangeDutyCycle(0)                             #
     pwmMotorLeftF.ChangeDutyCycle(0)                              #
@@ -383,6 +389,12 @@ def main():
         if (x, y) == (-1, -1): # negative values: default for no object
             print("No object found!")
 
+<<<<<<< HEAD
+=======
+            # use ultrasound distance sensor to search for potential objects and check for obstacles before turning
+            # overriding the random angle if potential objects are found
+            
+>>>>>>> Minor aesthetic changes
             listAnglesNoObstacles = []
             angle = -1
                
@@ -397,6 +409,7 @@ def main():
             # if no potential objects are found, pick a random angle amongst those without obstacles
                 if distance > threshDist_obstacle and distance > threshDist_object:
                     listAnglesNoObstacles.append(testAngle)
+
             if angle == -1:
                 angle = random.choice(listAnglesNoObstacles)        
 
@@ -408,5 +421,7 @@ def main():
         
     camera.release()
             
-        
+
+# testing
+
 goForwards(40, 1)
