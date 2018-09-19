@@ -189,12 +189,7 @@ def grabPicture():
 
     # Grab a reference to the raw camera capture
     rawCapture = PiRGBArray(camera, size=(640, 480))
-     
-    # These define the positions of the centroid of detected object. They will
-    # have positive values if an object is detected, so we set them negative now
-    iLastX = -1
-    iLastY = -1
-     
+
     # Capture frames from the camera at rawCapture
     camera.capture(rawCapture, format="bgr")
 
@@ -236,28 +231,21 @@ def findBlueBalloon(image):
     blueMask = cv.morphologyEx(blueMask, cv.MORPH_CLOSE, kernel)
 
     # Bitwise-AND mask and original image
-    blueImage = cv.bitwise_and(image,image, mask= blueMask)
+    blueImage = cv.bitwise_and(image, image, mask=blueMask)
 
     # CODE TO WRITE HERE: find the blue balloon
 
     # Find centroid of object
     M = cv.moments(blueMask)
     area = M['m00']
+
+    # If there are no objects, return -1
+    posX = -1
+    posY = -1
     # If the area is too small maybe that's not an object we want
     if area > 10000:
         posX = int(M['m10']/M['m00'])
         posY = int(M['m01']/M['m00'])
-
-    # From here below, it is just for TESTING purposes
-    # Need to get rid of them later!
-
-    # Display the resulting frame
-    cv.imshow('image',image)
-    #cv.imshow('mask',blueMask)
-    cv.imshow('res',blueImage)
-    # If the `q` key was pressed, break from the loop
-    if cv.waitKey(1) & 0xFF == ord('q'):
-        cv.destroyAllWindows()
 
     return posX, posY
 
@@ -272,3 +260,27 @@ def getAngleFromImage(image, x, y):
 
     return 2*np.pi*rad
 
+# MAIN FUNCTION OF THE ROBOT
+# We should be able to run this and magic happens
+def main():
+    while True:
+        img  = grabPicture()
+
+        # (x, y) are the position for the centroid of blue object
+        x, y = findBlueBalloon(img)
+
+        # negative values: default for no object
+        if (x, y) == (-1, -1):
+            print("No object found!")
+        # else, found something blue!
+        else:
+            # get angle of blue object
+            theta = getAngleFromImage(img, x, y)
+
+            # turn the distance sensor towards blue object
+            setAngle(theta)
+            # measure the distance towards blue object
+            d = distancePulse()
+            print("The distance is: ", d)
+
+            # now walk to blu object
