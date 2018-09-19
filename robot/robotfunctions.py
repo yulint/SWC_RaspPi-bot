@@ -1,6 +1,8 @@
 import RPi.GPIO as GPIO
 import numpy as np
 import cv2 as cv
+import random 
+
 
 from time import sleep, time
 from picamera import PiCamera
@@ -189,17 +191,18 @@ def turnRight(speed, duration):
     offAllMotors()
 
 # Turns the robot to face 0, 45, 135 or 180degrees, left to right = 0 to 180
-def turnTo0()
-    turnLeft(40,0.6)
+def turnAngle(angle)
+    if angle == 0:
+        turnLeft(40,0.6)
 
-def turnTo45()
-    turnLeft(40,0.3)
+    if angle == 45:
+        turnLeft(40,0.3)
 
-def turnTo135()
-    turnRight(40,0.3)
+    if angle == 135:
+        turnRight(40,0.3)
 
-def turnTo180()
-    turnRight(40,0.6)
+    if angle == 180
+        turnRight(40,0.6)
 
 
 # Grabs a picture from PiCamera
@@ -302,18 +305,43 @@ def main():
         # (x, y) are the position for the centroid of blue object
         x, y = findBlueBalloon(img)
 
-        # negative values: default for no object
-        if (x, y) == (-1, -1):
-            print("No object found!")
-        # else, found something blue!
-        else:
+        # found something blue!
+        if (x,y) != (-1, -1):
             # get angle of blue object
-            theta = getAngleFromImage(img, x, y)
+            angle = getAngleFromImage(img, x, y)
 
             # turn the distance sensor towards blue object
-            setAngle(theta)
+            setAngle(angle)
             # measure the distance towards blue object
             d = distancePulse()
             print("The distance is: ", d)
 
             # now walk to blu object
+
+        # if no blue objects found
+        if (x, y) == (-1, -1): # negative values: default for no object
+            print("No object found!")
+
+            # use ultrasound distance sensor to search for potential objects and check for obstacles before turning, overriding the random angle if potential objects are found
+            threshDist_object = 100 #smallest distance (mm) for which we can accept as potential object rather than obstacle; needs to be optimized
+            threshDist_obstacle = 10
+
+            listAnglesNoObstacles = []
+            angle = -1
+               
+            for testAngle in range(0,180,45):  #check through angles from 0 to 180, in 45degree increments 
+                setAngle(testAngle)
+                distance = distancePulse() 
+                    
+                if distance <= threshDist_object and distance > threshDist_obstacle: 
+                    angle = testAngle
+                    break
+                
+            # if no potential objects are found, pick a random angle amongst those without obstacles
+                if distance > threshDist_obstacle and distance > threshDist_object:
+                    listAnglesNoObstacles.append(testAngle)
+            if angle == -1:
+                angle = random.choice(listAnglesNoObstacles)        
+
+            turnAngle(angle)   
+
