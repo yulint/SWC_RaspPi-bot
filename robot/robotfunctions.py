@@ -59,7 +59,7 @@ pwm.start(0)
 #
 # SpeedLeft = speedRight when dutyCycleLeft = 0.9 x dutyCycleRight       #
 calibration = 0.9                                                        #
-# Decide threshold distance (mm) to be considered as obstacle vs potential object
+# Decide threshold distance (cm) to be considered as obstacle vs potential object
 threshDist_obstacle = 20
 # largest distance (mm) for which we can accept as potential object that is close enough
 threshDist_object   = 300                                                #
@@ -213,20 +213,21 @@ def turnAngle(angle):
     if angle == 0:
         turnLeft(40,0.6)
 
-    if angle == 45:
+    elif angle == 45:
         turnLeft(40,0.3)
 
-    if angle == 135:
+    elif angle == 135:
         turnRight(40,0.3)
 
-    if angle == 180:
+    elif angle == 180:
         turnRight(40,0.6)
 
-    if angle == 90:
+    elif angle == 90:
         pass
 
     else:
         print("We have an error, Houston!")
+        print("somehow ", angle)
 
 
 # Turns on camera
@@ -240,7 +241,10 @@ def initializeCamera():
     camera.set(cv.CAP_PROP_FRAME_WIDTH, 640)
     camera.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
 
-    camera.set(cv.CAP_PROP_FPS, 1)
+    # set the buffer to 1, otherwise the camera.grab() will give old frames
+    camera.set(cv.CAP_PROP_BUFFERSIZE, 1)
+               
+    # camera.set(cv.CAP_PROP_FPS, 30  )
 
     # Warmup time for camera to pick optimal exposure/ gain values (maybe less?)
     sleep(1)
@@ -257,8 +261,8 @@ def initializeCamera():
 
 # Receives a picture and process if it can find a blue object
 # Input: picture (numpy array BGR)
-# Output: pixel position of found object (-1 if not found)
-def findBlueBalloon(image):
+# Output: pixel position of found object (-1 if not found) and best contour's area
+def findBlueBalloon(image, i):
     # default x,y values if no objects are found
     (posX, posY) = (-1,-1)
 
@@ -267,8 +271,8 @@ def findBlueBalloon(image):
     hsv = cv.GaussianBlur(hsv,(7,7),0)
     
     # Define range of blue color in HSV
-    lower_blue = np.array([75,75,75])
-    upper_blue = np.array([130,225,225])
+    lower_blue = np.array([75,75,50])
+    upper_blue = np.array([130,255,255])
 
     # Threshold the HSV image to get only blue colors
     blueMask = cv.inRange(hsv, lower_blue, upper_blue)
@@ -288,7 +292,8 @@ def findBlueBalloon(image):
     # - goodness = roundness^powerRoundness * areaContour
     balloonRoundness = 0.
     balloonGoodness  = 0.
-
+    bestcontour = 0.
+    
     for contour in contours:
         # find best ellipse describe the contour
         ellipse = cv.fitEllipse(contour)
@@ -302,17 +307,22 @@ def findBlueBalloon(image):
         goodness  = roundness**powerRoundness * areacontour
 
         # save IF (bigger and better roundness) AND (round enough)
-        if goodness > balloongoodness and roundness > roundnessThreshold:
+        if goodness > balloonGoodness and roundness > roundnessThreshold:
             # save best values so far for next iteration
-            balloonroundness = roundness
-            balloongoodness = goodness
+            balloonRoundness = roundness
+            balloonGoodness = goodness
             bestBalloon = ellipse
+            bestcontour = areacontour
 
             # save position of centroid to be returned by the function
             posX = xel
             posY = yel
 
-    return posX, posY
+    if balloonGoodness != 0:
+        cv.ellipse(image, bestBalloon,(0,0,255), 2)
+        cv.imwrite('pics/pic_{}_balloon.jpg'.format(i), image)
+
+    return posX, posY, bestcontour
 
 
 # Receives a picture and the position of object then returns the angle to it
@@ -339,22 +349,30 @@ def normalizeImage(img):
 # Input: 2 pictures (numpy array BGR)
 # Output: True or False
 def compareImages(oldimg, newimg):
-    grayOldImg = normalizeImage(cv.cvtColor(oldimg, cv.COLOR_BGR2GRAY))
-    grayNewImg = normalizeImage(cv.cvtColor(newimg, cv.COLOR_BGR2GRAY))
+    grayOldImg = cv.cvtColor(oldimg, cv.COLOR_BGR2GRAY) # normalizeImage
+    grayNewImg = cv.cvtColor(newimg, cv.COLOR_BGR2GRAY)
 
+    grayOldImg_float = np.float32(grayOldImg)
+    grayNewImg_float = np.float32(grayNewImg)
+    
     # Calculate the difference and its norms
-    diffimg = grayOldImg - grayNewImg  # Elementwise for scipy arrays
-    m_norm = np.sum(np.abs(diffimg))  # Manhattan norm
-    z_norm = np.linalg.norm(diffimg.ravel(), 0)  # Zero norm
+    diffimg = np.abs(grayOldImg_float - grayNewImg_float) # Elementwise for scipy arrays
+    absdiffmean = np.mean(diffimg)  # Manhattan norm
+    diffpixels = np.count_nonzero(diffimg > 30)/(640*480.) # Zero norm after threshold
 
-    # Return True if they are too similar 
-    return (m_norm < 0.5 and z_norm < 0)
+    print("mean of abs diff: ", absdiffmean)
+    print("fraction diff: ", diffpixels)
+
+    print(diffimg)
+
+    # Return True if they are too similar (robot stuck)
+    return (absdiffmean < 12 and diffpixels < 0.05)
 
 
 def compareDistanceSensor(previousD, currentD):
-    difference = abs(previousD - currentD)/previousD
+    difference = abs(previousD - currentD)
     
-    return (difference < 1) #expect that robot should move at least 1 cm each yimr 
+    return (difference < 10 and difference > 0) #expect that robot should move at least 1 cm each yimr 
     
 
 def roundTo45(n):
@@ -364,32 +382,48 @@ def roundTo45(n):
 # We should be able to run this and magic happens
 def main():   
     camera = initializeCamera()
-    _, previousImg = camera.read()
-    previousD = 0
+    previousImg = np.random.randint(0, high=255, size=(640, 480, 3))
+    previousD = -1
+
+    print(0)
+    cv.imwrite('pics/pic_0.jpg', previousImg)
     
     i = 0
     while True:
         # Capture frame-by-frame (for detecting blue balloons + checking if robot is stuck)
         _, currentImg  = camera.read()
-
+        
         i += 1
         print(i)
+        cv.imwrite('pics/pic_{}.jpg'.format(i), currentImg)
         
         # Check distance straight ahead (for checking if robot is stuck)
         rotateDistanceSensor(90)
         currentD = distancePulse() 
-        
-        # Check whether robot is stuck after each movement
-        stuck = compareImages(previousImg, currentImg) or compareDistanceSensor(previousD, currentD)
-        if stuck == True:
-            goBackwards(40,1)
-            angle = (random.randint(0,6))*30
-        
-                    
+        print("distance straight ahead:", currentD)
+
         # LOOK FOR BLUE BALLOON
         # (x, y) are the position for the centroid of blue object
-        x, y = findBlueBalloon(currentImg)
+        x, y, area = findBlueBalloon(currentImg, i)
+        print('blue object!\n x: {} y: {} area:{}'.format(x, y, area))
+        
+        # Check whether robot is stuck after each movement
+        imagestuck = compareImages(previousImg, currentImg)
+        distancestuck = compareDistanceSensor(previousD, currentD)
 
+        if imagestuck or (distancestuck and area < 70000):
+            goBackwards(40,1)
+            angle = (random.randint(0,6))*30
+            turnAngle(roundTo45(angle))
+            goForwards(40, 1)
+            print("stuck! turn ",roundTo45(angle))
+            print("image: ", imagestuck, " distance: ", distancestuck)
+            # bad coding! fix this..
+            previousImg = currentImg
+            previousD = currentD
+            sleep(5)
+            continue
+                    
         # GO TOWARDS BLUE OBJECT, IF FOUND
         if (x,y) != (-1, -1):
             # Get angle of blue object 
@@ -398,22 +432,24 @@ def main():
             # Check for obstacles between robot and blue object
             rotateDistanceSensor(angle) # Turn the distance sensor towards blue object
             d = distancePulse()
-            print("The distance is: ", d)
-            
+                        
             # Walk straight to blue object if there are no obstacles in the way
-            if d > threshDist_obstacle:
+            if (d <= threshDist_obstacle and area < 70000):
+                (x,y) = (-1,-1)
+                print("object found but obstacle ahead at distance ", d)
+            else:
                 turnAngle(roundTo45(angle))
                 goForwards(40,1) # Need to optimise how far robot walks forwards
+                print("move towards blue object ", d)
+                print("blue object angle ", roundTo45(angle))
 
-            if d <= threshDist_obstacle:
-                (x,y) = (-1,-1)                 
 
         # EXPLORE IF NO BLUE OBJECTS
         # If no blue objects found, or obstacle in the way of blue object
         # Then use ultrasound distance sensor to search for potential objects and check for obstacles before turning
         # If no potential objects are found, pick a random direction 
         if (x, y) == (-1, -1): # Negative values: default for no object
-            print("No object found!")
+            print("No object found, explore!")
 
             listAnglesNoObstacles = []
             angle = -1
@@ -438,10 +474,15 @@ def main():
 
         previousImg = currentImg
         previousD = currentD
+
+        sleep(5)
+
+        if cv.waitKey(1) & 0xFF == ord('q'):
+            break
         
     camera.release()
             
 
 # Testing
 
-rotateDistanceSensor(90)
+main() 
