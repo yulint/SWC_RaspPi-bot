@@ -4,8 +4,6 @@ import cv2 as cv
 import random 
 
 from time import sleep, time
-from picamera import PiCamera
-from picamera.array import PiRGBArray
 
 # Set GPIO modes (numbering of pins: BCM)
 GPIO.setmode(GPIO.BCM)
@@ -382,12 +380,14 @@ def roundTo45(n):
 # We should be able to run this and magic happens
 def main():   
     camera = initializeCamera()
-    previousImg = np.random.randint(0, high=255, size=(640, 480, 3))
+    previousImg = camera.read()
     previousD = -1
 
     print(0)
     cv.imwrite('pics/pic_0.jpg', previousImg)
     
+    goForwards(40, 1)
+
     i = 0
     while True:
         # Capture frame-by-frame (for detecting blue balloons + checking if robot is stuck)
