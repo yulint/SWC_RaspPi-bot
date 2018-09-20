@@ -59,12 +59,14 @@ pwm.start(0)
 #
 # SpeedLeft = speedRight when dutyCycleLeft = 0.9 x dutyCycleRight       #
 calibration = 0.9                                                        #
-#
 # Decide threshold distance (mm) to be considered as obstacle vs potential object
-threshDist_obstacle = 10
-# Smallest distance (mm) for which we can accept as potential object rather than obstacle
-threshDist_object   = 100                                                #
-#                                                                        #
+threshDist_obstacle = 20
+# largest distance (mm) for which we can accept as potential object that is close enough
+threshDist_object   = 300                                                #
+# the threshold to consider an object round enough to be a balloon
+roundnessThreshold  = 0.9                                                #
+# how much the roundness should be important with respect to the size of blue object
+powerRoundness      = 2                                                  #
 ##########################################################################
 
 ## FUNCTIONS
@@ -220,7 +222,10 @@ def turnAngle(angle):
     if angle == 180:
         turnRight(40,0.6)
 
-    else
+    if angle == 90:
+        pass
+
+    else:
         print("We have an error, Houston!")
 
 
@@ -230,19 +235,22 @@ def turnAngle(angle):
 def initializeCamera():
     # Initialize the camera
     camera = cv.VideoCapture(0)
-    
+
     # Set camera resolution
     camera.set(cv.CAP_PROP_FRAME_WIDTH, 640)
     camera.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
-   
+
     camera.set(cv.CAP_PROP_FPS, 1)
-    
+
     # Warmup time for camera to pick optimal exposure/ gain values (maybe less?)
     sleep(1)
 
     # Fix exposure time, and gains (white balance cannot be fixed using openCV)
-    optimizedExposure = int(camera.get(cv.CAP_PROP_EXPOSURE))
-    camera.set(cv.CAP_PROP_EXPOSURE,optimizedExposure)
+    # optimizedExposure = int(camera.get(cv.CAP_PROP_EXPOSURE))
+    # camera.set(cv.CAP_PROP_EXPOSURE,optimizedExposure)
+    _, testimg = camera.read()
+    if testimg is None:
+        print("None!")
     
     return camera
 
@@ -251,50 +259,59 @@ def initializeCamera():
 # Input: picture (numpy array BGR)
 # Output: pixel position of found object (-1 if not found)
 def findBlueBalloon(image):
+    # default x,y values if no objects are found
+    (posX, posY) = (-1,-1)
+
     # Our operations on the frame come here
     hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
-    hsv = cv.medianBlur(hsv,5) #MAYBE WE SHOULD TRY GAUSSIAN BLUR HERE 
-
+    hsv = cv.GaussianBlur(hsv,(7,7),0)
+    
     # Define range of blue color in HSV
-    # Royal blue's HSV:
-    # - ColorHexa (225 o, 71.1, 88.2)
-    # - Wikipedia (219 o, 100%, 40%)
-    # - Color Hex (225 o, 71, 88)
-    lower_blue = np.array([105,50,50])
-    upper_blue = np.array([130,255,255])
+    lower_blue = np.array([75,75,75])
+    upper_blue = np.array([130,225,225])
 
     # Threshold the HSV image to get only blue colors
     blueMask = cv.inRange(hsv, lower_blue, upper_blue)
 
     # Refine mask
-    blueMask = cv.medianBlur(hsv,5)
-    kernel = np.ones((5,5),np.uint8)
-    blueMask = cv.morphologyEx(blueMask, cv.MORPH_OPEN, kernel)
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (12,12))
     blueMask = cv.morphologyEx(blueMask, cv.MORPH_CLOSE, kernel)
-
+    blueMask = cv.morphologyEx(blueMask, cv.MORPH_OPEN, kernel)
+    
     # CODE TO WRITE HERE: find the blue balloon
     _, contours, hierarchy = cv.findContours(blueMask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    
-    # METHOD ONE: choose largest contour
-    if len(contours) > 0:
-        largestContour = max(contours, key=cv.contourArea)
-    
-    # METHOD TWO: filter out contours that are too small, then check for roundness?
-    sizeFilteredContours = []
-    for contour in contours:
-        area = cv.contourArea(contour)
-        if area > 1000 :
-            sizeFilteredContours.append(contour)
-    # code to check for roundness
 
+    # set a inexistent balloon as default
+    bestBalloon = (0, 0), (0, 0), 0
+    # set inexistent balloon`s parameters as well
+    # - roundmess measures how much it is similar to an ellipse
+    # - goodness = roundness^powerRoundness * areaContour
+    balloonRoundness = 0.
+    balloonGoodness  = 0.
+
+    for contour in contours:
+        # find best ellipse describe the contour
+        ellipse = cv.fitEllipse(contour)
+        # split the ellipse's parameters
+        (xel, yel), (r1el, r2el), rot = ellipse
     
-    blueBalloon = largestContour #or whichever method we use
-    
-    # Find centroid of blue balloon
-    M = cv.moments(blueBalloon)
-    posX = int(M['m10']/M['m00'])
-    posY = int(M['m01']/M['m00'])
-   
+        areacontour = cv.contourArea(contour)
+        areaellipse = np.pi * r1el * r2el / 4 # axis, not semi-axis
+
+        roundness = 1 - np.abs(areacontour - areaellipse) / max(areacontour, areaellipse)
+        goodness  = roundness**powerRoundness * areacontour
+
+        # save IF (bigger and better roundness) AND (round enough)
+        if goodness > balloongoodness and roundness > roundnessThreshold:
+            # save best values so far for next iteration
+            balloonroundness = roundness
+            balloongoodness = goodness
+            bestBalloon = ellipse
+
+            # save position of centroid to be returned by the function
+            posX = xel
+            posY = yel
+
     return posX, posY
 
 
@@ -326,30 +343,37 @@ def compareImages(oldimg, newimg):
     grayNewImg = normalizeImage(cv.cvtColor(newimg, cv.COLOR_BGR2GRAY))
 
     # Calculate the difference and its norms
-    diffimg = img1 - img2  # Elementwise for scipy arrays
-    m_norm = sum(abs(diffimg))  # Manhattan norm
-    z_norm = norm(diffimg.ravel(), 0)  # Zero norm
+    diffimg = grayOldImg - grayNewImg  # Elementwise for scipy arrays
+    m_norm = np.sum(np.abs(diffimg))  # Manhattan norm
+    z_norm = np.linalg.norm(diffimg.ravel(), 0)  # Zero norm
 
     # Return True if they are too similar 
     return (m_norm < 0.5 and z_norm < 0)
 
 
 def compareDistanceSensor(previousD, currentD):
-    difference = abs(previousD - currentD)
+    difference = abs(previousD - currentD)/previousD
     
-    return (difference < 1)
+    return (difference < 1) #expect that robot should move at least 1 cm each yimr 
     
+
+def roundTo45(n):
+    return 45*((n + 22.5) // 45)
 
 # MAIN FUNCTION OF THE ROBOT
 # We should be able to run this and magic happens
 def main():   
     camera = initializeCamera()
-    # PreviousImg = 
+    _, previousImg = camera.read()
     previousD = 0
-           
+    
+    i = 0
     while True:
         # Capture frame-by-frame (for detecting blue balloons + checking if robot is stuck)
         _, currentImg  = camera.read()
+
+        i += 1
+        print(i)
         
         # Check distance straight ahead (for checking if robot is stuck)
         rotateDistanceSensor(90)
@@ -369,7 +393,7 @@ def main():
         # GO TOWARDS BLUE OBJECT, IF FOUND
         if (x,y) != (-1, -1):
             # Get angle of blue object 
-            angle = 90 + getAngleFromImage(img, x, y)
+            angle = 90 + getAngleFromImage(currentImg, x, y)
 
             # Check for obstacles between robot and blue object
             rotateDistanceSensor(angle) # Turn the distance sensor towards blue object
@@ -378,7 +402,7 @@ def main():
             
             # Walk straight to blue object if there are no obstacles in the way
             if d > threshDist_obstacle:
-                turnAngle(angle)
+                turnAngle(roundTo45(angle))
                 goForwards(40,1) # Need to optimise how far robot walks forwards
 
             if d <= threshDist_obstacle:
@@ -409,8 +433,8 @@ def main():
             if angle == -1:
                 angle = random.choice(listAnglesNoObstacles)        
 
-            turnAngle(angle)
-            goForwards(40,1)
+            turnAngle(roundTo45(angle))
+            goForwards(50,1) #move faster when exploring
 
         previousImg = currentImg
         previousD = currentD
@@ -420,4 +444,4 @@ def main():
 
 # Testing
 
-goForwards(40, 1)
+rotateDistanceSensor(90)
